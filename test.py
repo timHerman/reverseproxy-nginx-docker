@@ -1,4 +1,4 @@
-import docker
+import docker, os, glob
 
 def get_router_virtual_host(detailList):
 	env = detailList["Config"]["Env"]
@@ -12,7 +12,7 @@ def get_router_virtual_host(detailList):
 
 def get_router_virtual_port(detailList):
 	env = detailList["Config"]["Env"]
-	router_virtual_host = None
+	router_virtual_port = None
 	for env_param in env:
 		sp = env_param.split('=')
 		if sp[0] == 'ROUTER_VIRTUAL_PORT':
@@ -23,7 +23,7 @@ def get_router_virtual_port(detailList):
 
 def get_router_virtual_cert(detailList):
 	env = detailList["Config"]["Env"]
-	router_virtual_host = None
+	router_virtual_cert = None
 	for env_param in env:
 		sp = env_param.split('=')
 		if sp[0] == 'ROUTER_VIRTUAL_CERT':
@@ -43,20 +43,50 @@ def main():
 	containerList = c.containers(quiet=False, all=False, trunc=True, latest=False, since=None,
 		     before=None, limit=-1)
 
+	generatedFileNames = []
 
 	for container in containerList:
 		detailList = c.inspect_container(container["Id"])
 		print "IP: %s, router_virtual_host: %s" % ( get_ip_address(detailList), get_router_virtual_host(detailList) )
-		
-		if get_router_virtual_host(detailList) == None:
-			print "TIS EEN NON"
 
-	
+		host_ip = get_ip_address(detailList)
+		host_name = get_router_virtual_host(detailList)
+		host_cert = get_router_virtual_cert(detailList)
+		host_port = get_router_virtual_port(detailList)
+
+		# Check if the mimimum is set
+		if host_ip and host_name:
+			# Load template and fill with data
+			templateFile = open('template/nginx.conf.tpl','r')
+			output = templateFile.read() % ( { "hostname": host_name, "ipaddress": host_ip, "cert": host_cert, "port": host_port    } )
+			
+			# Generate filename
+			filePath = 'output/generated.%(filename)s.conf' % ( { "filename": host_name } )
+			generatedFileNames.append(filePath)
+			# Check if file exists, if there are no changes, do nothing (We want to detect changes later on to reload nginx)
+			if os.path.isfile(filePath):
+				existingFile = open(filePath, 'r')
+				fileContent = existingFile.read()
+				if fileContent != output:
+					writeFile(filePath, output)
+			else:
+				writeFile(filePath, output)
+
+	removeOldFiles('output', generatedFileNames)
+
+def removeOldFiles(dir, generatedFileNames):
+	for (_, __, files) in os.walk(dir):
+		for file in files:
+			if file.startswith('generated.'):
+				fullPathFile = 'output/%s' % file
+				if not fullPathFile in generatedFileNames:
+					print "Removing old file %s" % fullPathFile
+					os.remove(fullPathFile)
+
+def writeFile(filePath, output):
+	outputFile = open(filePath, 'w+')
+	outputFile.write(output)
+	outputFile.close()
 
 if __name__ == "__main__":
 	main()
-
-	print """DIT IS EEN CONFIG FILE
-	MET INHOUD %(IPAddress)s
-	EN MEER HOSTS %(HostAddress)s""" % ( {  "HostAddress": "HOSTJES", "IPAddress": "123.123.123" } )
-	
