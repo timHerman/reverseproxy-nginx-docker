@@ -1,13 +1,24 @@
 #!/usr/bin/env python
 
-import docker, os, logging, logging.handlers
+import docker
+import os
+import sys
+import logging
+import logging.handlers
+import getopt
 
-LOG_FILENAME = 'generater.log'
-logger = logging.getLogger('generator')
-logger.setLevel(logging.DEBUG)
+logger = None
 
-handler = logging.handlers.RotatingFileHandler(LOG_FILENAME, maxBytes=1048576, backupCount=5)
-logger.addHandler(handler)
+def printHelp():
+	print "Usage: %s [-h|--help] [-o|--outputdir=] <outputdir> [-t|--templatedir=] <tempatedir> [-s|--socket=] <socket> [-l|--logfile=] <logfile>" % sys.argv[0]
+
+def setLogging(options):
+	LOG_FILENAME = options['logfile']
+	logger = logging.getLogger('generator')
+	logger.setLevel(logging.DEBUG)
+
+	handler = logging.handlers.RotatingFileHandler(LOG_FILENAME, maxBytes=1048576, backupCount=5)
+	logger.addHandler(handler)
 
 def get_router_virtual_host(detailList):
 	env = detailList["Config"]["Env"]
@@ -16,7 +27,7 @@ def get_router_virtual_host(detailList):
 		sp = env_param.split('=')
 		if sp[0] == 'ROUTER_VIRTUAL_HOST':
 			router_virtual_host = sp[1]
-	
+
 	return router_virtual_host
 
 def get_router_virtual_port(detailList):
@@ -26,9 +37,8 @@ def get_router_virtual_port(detailList):
 		sp = env_param.split('=')
 		if sp[0] == 'ROUTER_VIRTUAL_PORT':
 			router_virtual_port = sp[1]
-	
-	return router_virtual_port
 
+	return router_virtual_port
 
 def get_router_virtual_cert(detailList):
 	env = detailList["Config"]["Env"]
@@ -37,9 +47,8 @@ def get_router_virtual_cert(detailList):
 		sp = env_param.split('=')
 		if sp[0] == 'ROUTER_VIRTUAL_CERT':
 			router_virtual_cert = sp[1]
-	
-	return router_virtual_cert
 
+	return router_virtual_cert
 
 def get_ip_address(detailList):
 	return detailList["NetworkSettings"]["IPAddress"]
@@ -48,7 +57,7 @@ def removeOldFiles(dir, generatedFileNames):
 	for (_, __, files) in os.walk(dir):
 		for file in files:
 			if file.startswith('generated.'):
-				fullPathFile = 'output/%s' % file
+				fullPathFile = '%s/%s' % (dir, file)
 				if not fullPathFile in generatedFileNames:
 					logger.debug('Removing old file %s' % fullPathFile)
 					os.remove(fullPathFile)
@@ -74,8 +83,16 @@ def generateTemplate(templateFile, filePath, host_name, host_ip, host_cert, host
 		writeFile(filePath, output)
 
 
-def main():
-	c = docker.Client(base_url='unix://var/run/docker.sock',
+def main(argv):
+	options = getOptions(argv)
+
+	if options['help']:
+		printHelp()
+		exit(0)
+
+	setLogger(options)
+
+	c = docker.Client(base_url=options['socket'],
 			  version='1.12',
 			  timeout=10)
 
@@ -99,22 +116,46 @@ def main():
 
 		# Check if the mimimum is set
 		if host_ip and host_name:
-			filePath = 'output/generated.%s.conf' % host_name
-			generateTemplate('template/nginx.conf.tpl', filePath, host_name, host_ip, host_cert, host_port)
+			filePath = '%s/generated.%s.conf' % (options['outputdir'], host_name)
+			generateTemplate('%s/nginx.conf.tpl' % options['templatedir'], filePath, host_name, host_ip, host_cert, host_port)
 			generatedFileNames.append(filePath)
 
-			filePath = 'output/generated.redirect.%s.conf' % host_name
-			generateTemplate('template/redirect.nginx.conf.tpl', filePath, host_name, host_ip, host_cert, host_port)
+			filePath = '%s/generated.redirect.%s.conf' % (options['outputdir'], host_name)
+			generateTemplate('%s/redirect.nginx.conf.tpl' % options['templatedir'], filePath, host_name, host_ip, host_cert, host_port)
 			generatedFileNames.append(filePath)
 
-	removeOldFiles('output', generatedFileNames)
-			
+	removeOldFiles(options['outputdir'], generatedFileNames)
+
+def getOptions(argv):
+	getopts, remainder = getopt.getopt(argv, "o:t:s:l:h", [
+		'outputdir=',
+		'templatedir=',
+		'socket=',
+		'logfile=',
+		'help'
+	])
+
+	options = {
+		'outputdir': 'output',
+		'templatedir': 'template',
+		'socket': 'unix://var/run/docker.sock',
+		'logfile': 'generator.log',
+		'help': False
+	}
+
+	for opt, arg in getopts:
+		if opt in ('-o', '--outputdir'):
+			options['outputdir'] = arg.strip('/')
+		elif opt in ('-t', '--templatedir'):
+			options['templatedir'] = arg.strip('/')
+		elif opt in ('-s', '--socket'):
+			options['socket'] = arg
+		elif opt in ('-l', '--logfile'):
+			options['logfile'] = arg
+		elif opt in ('-h', '--help'):
+			options['help'] = True
+
+	return options
 
 if __name__ == "__main__":
-	main()
-
-"""
-
-SCRAPZONE
-
-"""
+	main(sys.argv[1:])
