@@ -19,6 +19,7 @@ def setLogging(options):
 
 	handler = logging.handlers.RotatingFileHandler(LOG_FILENAME, maxBytes=1048576, backupCount=5)
 	logger.addHandler(handler)
+	return logger
 
 def get_router_virtual_host(detailList):
 	env = detailList["Config"]["Env"]
@@ -59,14 +60,14 @@ def removeOldFiles(dir, generatedFileNames):
 			if file.startswith('generated.'):
 				fullPathFile = '%s/%s' % (dir, file)
 				if not fullPathFile in generatedFileNames:
-					logger.debug('Removing old file %s' % fullPathFile)
+					#logger.debug('Removing old file %s' % fullPathFile)
 					os.remove(fullPathFile)
 
 def writeFile(filePath, output):
 	outputFile = open(filePath, 'w+')
 	outputFile.write(output)
 	outputFile.close()
-	logger.debug('Add new file %s' % filePath)
+	#logger.debug('Add new file %s' % filePath)
 
 def generateTemplate(templateFile, filePath, host_name, host_ip, host_cert, host_port):
 	# Load template and fill with data
@@ -90,7 +91,7 @@ def main(argv):
 		printHelp()
 		exit(0)
 
-	setLogger(options)
+	logger = setLogging(options)
 
 	c = docker.Client(base_url=options['socket'],
 			  version='1.12',
@@ -108,7 +109,6 @@ def main(argv):
 		host_name = get_router_virtual_host(detailList)
 		host_cert = get_router_virtual_cert(detailList)
 		host_port = get_router_virtual_port(detailList)
-
 		logger.debug('Handling container IP %s & VHost %s' % ( host_ip, host_name ))
 
 		if host_name and host_name.startswith('www.'):

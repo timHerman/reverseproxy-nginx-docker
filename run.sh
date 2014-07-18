@@ -1,4 +1,4 @@
 #!/bin/bash
 cd /docker/toolkit/nginxgenerator/
-python test.py
+python refresh_configs.py
 cd -
