@@ -7,17 +7,17 @@ import logging
 import logging.handlers
 import getopt
 
-logger = None
+logger = logging.getLogger('generator')
 
 def printHelp():
 	print "Usage: %s [-h|--help] [-o|--outputdir=] <outputdir> [-t|--templatedir=] <tempatedir> [-s|--socket=] <socket> [-l|--logfile=] <logfile>" % sys.argv[0]
 
 def setLogging(options):
 	LOG_FILENAME = options['logfile']
-	logger = logging.getLogger('generator')
 	logger.setLevel(logging.DEBUG)
 
 	handler = logging.handlers.RotatingFileHandler(LOG_FILENAME, maxBytes=1048576, backupCount=5)
+	handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 	logger.addHandler(handler)
 	return logger
 
@@ -60,14 +60,14 @@ def removeOldFiles(dir, generatedFileNames):
 			if file.startswith('generated.'):
 				fullPathFile = '%s/%s' % (dir, file)
 				if not fullPathFile in generatedFileNames:
-					#logger.debug('Removing old file %s' % fullPathFile)
+					logger.debug('Removing old file %s' % fullPathFile)
 					os.remove(fullPathFile)
 
 def writeFile(filePath, output):
 	outputFile = open(filePath, 'w+')
 	outputFile.write(output)
 	outputFile.close()
-	#logger.debug('Add new file %s' % filePath)
+	logger.debug('Add new file %s' % filePath)
 
 def generateTemplate(templateFile, filePath, host_name, host_ip, host_cert, host_port):
 	# Load template and fill with data
