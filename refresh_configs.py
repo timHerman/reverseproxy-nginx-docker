@@ -111,8 +111,6 @@ def main(argv):
 		host_port = get_router_virtual_port(detailList)
 		logger.debug('Handling container IP %s & VHost %s' % ( host_ip, host_name ))
 
-		if host_name and host_name.startswith('www.'):
-			host_name = host_name[4:]
 
 		# Check if the mimimum is set
 		if host_ip and host_name:
@@ -120,9 +118,11 @@ def main(argv):
 			generateTemplate('%s/nginx.conf.tpl' % options['templatedir'], filePath, host_name, host_ip, host_cert, host_port)
 			generatedFileNames.append(filePath)
 
-			filePath = '%s/generated.redirect.%s.conf' % (options['outputdir'], host_name)
-			generateTemplate('%s/redirect.nginx.conf.tpl' % options['templatedir'], filePath, host_name, host_ip, host_cert, host_port)
-			generatedFileNames.append(filePath)
+			if host_name and host_name.startswith('www.'):
+				host_name = host_name[4:]
+				filePath = '%s/generated.redirect.%s.conf' % (options['outputdir'], host_name)
+				generateTemplate('%s/redirect.nginx.conf.tpl' % options['templatedir'], filePath, host_name, host_ip, host_cert, host_port)
+				generatedFileNames.append(filePath)
 
 	removeOldFiles(options['outputdir'], generatedFileNames)
 
