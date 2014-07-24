@@ -1,3 +1,6 @@
 output/*
 .*
+generator.log
+generator.log*
+run.sh
 .idea

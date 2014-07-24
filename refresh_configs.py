@@ -111,7 +111,6 @@ def main(argv):
 		host_port = get_router_virtual_port(detailList)
 		logger.debug('Handling container IP %s & VHost %s' % ( host_ip, host_name ))
 
-
 		# Check if the mimimum is set
 		if host_ip and host_name:
 			filePath = '%s/generated.%s.conf' % (options['outputdir'], host_name)
@@ -145,7 +144,7 @@ def getOptions(argv):
 
 	for opt, arg in getopts:
 		if opt in ('-o', '--outputdir'):
-			options['outputdir'] = arg.strip('/')
+			options['outputdir'] = arg
 		elif opt in ('-t', '--templatedir'):
 			options['templatedir'] = arg.strip('/')
 		elif opt in ('-s', '--socket'):
