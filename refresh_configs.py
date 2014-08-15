@@ -41,15 +41,35 @@ def get_router_virtual_port(detailList):
 
 	return router_virtual_port
 
-def get_router_virtual_cert(detailList):
+def get_router_virtual_sslmode(detailList):
 	env = detailList["Config"]["Env"]
-	router_virtual_cert = None
+	router_virtual_sslmode = None
 	for env_param in env:
 		sp = env_param.split('=')
-		if sp[0] == 'ROUTER_VIRTUAL_CERT':
-			router_virtual_cert = sp[1]
+		if sp[0] == 'ROUTER_VIRTUAL_SSLMODE':
+			router_virtual_sslmode = sp[1]
+	
+	return router_virtual_sslmode
 
-	return router_virtual_cert
+def get_router_virtual_sslcert(detailList):
+	env = detailList["Config"]["Env"]
+	router_virtual_sslcert = None
+	for env_param in env:
+		sp = env_param.split('=')
+		if sp[0] == 'ROUTER_VIRTUAL_SSLCERT':
+			router_virtual_sslcert = sp[1]
+	
+	return router_virtual_sslcert
+
+def get_router_virtual_sslkey(detailList):
+	env = detailList["Config"]["Env"]
+	router_virtual_sslkey = None
+	for env_param in env:
+		sp = env_param.split('=')
+		if sp[0] == 'ROUTER_VIRTUAL_SSLKEY':
+			router_virtual_sslkey = sp[1]
+
+	return router_virtual_sslkey
 
 def get_ip_address(detailList):
 	return detailList["NetworkSettings"]["IPAddress"]
@@ -69,10 +89,10 @@ def writeFile(filePath, output):
 	outputFile.close()
 	logger.debug('Add new file %s' % filePath)
 
-def generateTemplate(templateFile, filePath, host_name, host_ip, host_cert, host_port):
+def generateTemplate(templateFile, filePath, host_name, host_ip, host_port, ssl_mode, ssl_cert, ssl_key):
 	# Load template and fill with data
 	templateFile = open(templateFile,'r')
-	output = templateFile.read() % ( { "hostname": host_name, "ipaddress": host_ip, "cert": host_cert, "port": host_port    } )
+	output = templateFile.read() % ( { "hostname": host_name, "ipaddress": host_ip, "port": host_port, "sslcert": ssl_cert, "sslkey": ssl_key  } )
 
 	# Check if file exists, if there are no changes, do nothing (We want to detect changes later on to reload nginx)
 	if os.path.isfile(filePath):
@@ -107,21 +127,36 @@ def main(argv):
 
 		host_ip = get_ip_address(detailList)
 		host_name = get_router_virtual_host(detailList)
-		host_cert = get_router_virtual_cert(detailList)
 		host_port = get_router_virtual_port(detailList)
+		ssl_mode = get_router_virtual_sslmode(detailList)
+		ssl_cert = get_router_virtual_sslcert(detailList)
+		ssl_key = get_router_virtual_sslkey(detailList)
 		logger.debug('Handling container IP %s & VHost %s' % ( host_ip, host_name ))
 
 		# Check if the mimimum is set
-		if host_ip and host_name:
-			filePath = '%s/generated.%s.conf' % (options['outputdir'], host_name)
-			generateTemplate('%s/nginx.conf.tpl' % options['templatedir'], filePath, host_name, host_ip, host_cert, host_port)
-			generatedFileNames.append(filePath)
-
-			if host_name and host_name.startswith('www.'):
-				host_name = host_name[4:]
-				filePath = '%s/generated.redirect.%s.conf' % (options['outputdir'], host_name)
-				generateTemplate('%s/redirect.nginx.conf.tpl' % options['templatedir'], filePath, host_name, host_ip, host_cert, host_port)
+		#if ssl_mode:
+		if ssl_cert and ssl_key:
+			if host_ip and host_name:
+				filePath = '%s/generated.%s.conf' % (options['outputdir'], host_name)
+				generateTemplate('%s/nginx.ssl.conf.tpl' % options['templatedir'], filePath, host_name, host_ip, host_port, ssl_mode, ssl_cert, ssl_key)
 				generatedFileNames.append(filePath)
+
+				if host_name and host_name.startswith('www.'):
+					host_name = host_name[4:]
+					filePath = '%s/generated.redirect.%s.conf' % (options['outputdir'], host_name)
+					generateTemplate('%s/redirect.nginx.conf.tpl' % options['templatedir'], filePath, host_name, host_ip,  host_port, ssl_mode, ssl_cert, ssl_key)
+					generatedFileNames.append(filePath)
+		else:
+			if host_ip and host_name:
+				filePath = '%s/generated.%s.conf' % (options['outputdir'], host_name)
+				generateTemplate('%s/nginx.conf.tpl' % options['templatedir'], filePath, host_name, host_ip, host_port, ssl_mode, ssl_cert, ssl_key)
+				generatedFileNames.append(filePath)
+
+				if host_name and host_name.startswith('www.'):
+					host_name = host_name[4:]
+					filePath = '%s/generated.redirect.%s.conf' % (options['outputdir'], host_name)
+					generateTemplate('%s/redirect.nginx.conf.tpl' % options['templatedir'], filePath, host_name, host_ip,  host_port, ssl_mode, ssl_cert, ssl_key)
+					generatedFileNames.append(filePath)
 
 	removeOldFiles(options['outputdir'], generatedFileNames)
 

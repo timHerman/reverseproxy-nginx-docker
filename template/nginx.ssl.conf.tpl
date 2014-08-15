@@ -5,9 +5,12 @@ server {
 }
 
 server {
+	keepalive_timeout 70;
 	listen 443 ssl;
-	ssl_certificate %(ssl_pem)s;
-	ssl_certificate_key %(ssl_key)s;
+
+	ssl on;
+	ssl_certificate %(sslcert)s;
+	ssl_certificate_key %(sslkey)s;
 
 	server_name %(hostname)s;
 
