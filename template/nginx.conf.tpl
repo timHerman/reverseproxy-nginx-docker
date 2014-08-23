@@ -1,4 +1,5 @@
 server {
+	client_max_body_size 1G;
 	server_name %(hostname)s;
 
 	location / {
